@@ -1155,6 +1155,14 @@
 
   // ── Init ──────────────────────────────────────────────────────────────────
   updateTotal();
+
+  // If voting is already running (new tab opened mid-session), catch up
+  fetch('/api/status').then(r => r.json()).then(s => {
+    if (s.active) {
+      setVotingState(true);
+      connectSSE();   // replay buffer sends all prior log lines automatically
+    }
+  }).catch(() => {});
 </script>
 </body>
 </html>

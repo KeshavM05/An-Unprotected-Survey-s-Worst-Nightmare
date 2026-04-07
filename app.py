@@ -69,9 +69,37 @@ SURVEY_CHOICES = [
     {"id": "24", "label": "Group 24 — SillySigmaSyndicate ⭐","display": "Adham Elshabrawy, Keshav Mehndiratta, Manan Saini"},
 ]
 
-# Global SSE queue (single-client model, fine for local use)
-_sse_queue: queue.Queue = queue.Queue()
+# ── Multi-client SSE broadcast ────────────────────────────────────────────────
+_sse_clients: list[queue.Queue] = []          # one queue per connected tab
+_sse_clients_lock = threading.Lock()
+_vote_log: list[str] = []                     # replay buffer for new tabs
+_current_state: dict = {}                     # latest progress snapshot
 _voting_active = False
+MAX_LOG_HISTORY = 100
+
+
+def _broadcast(event: str, data: dict):
+    """Push an SSE event to every connected client and store it for replay."""
+    global _vote_log, _current_state
+    msg = f"event: {event}\ndata: {json.dumps(data)}\n\n"
+
+    # Update replay state
+    if event == "start":
+        _vote_log = [msg]           # fresh log for new run
+        _current_state = data
+    elif event in ("progress", "done", "stopped"):
+        _vote_log.append(msg)
+        if len(_vote_log) > MAX_LOG_HISTORY:
+            _vote_log.pop(0)
+        _current_state = data
+
+    # Send to all connected tabs
+    with _sse_clients_lock:
+        for q in list(_sse_clients):
+            try:
+                q.put_nowait(msg)
+            except Exception:
+                pass
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Persistent stats (stats.json)
@@ -201,7 +229,7 @@ def _run_votes(jobs: list[dict]):
     success = 0
 
     def emit(event: str, data: dict):
-        _sse_queue.put(f"event: {event}\ndata: {json.dumps(data)}\n\n")
+        _broadcast(event, data)
 
     emit("start", {"total": total})
 
@@ -294,15 +322,44 @@ def api_stop():
     return jsonify({"ok": True})
 
 
+@app.route("/api/status")
+def api_status():
+    """Lets new tabs check if voting is in progress and get current state."""
+    return jsonify({
+        "active": _voting_active,
+        "state": _current_state,
+        "log_count": len(_vote_log),
+    })
+
+
 @app.route("/api/stream")
 def api_stream():
+    client_q: queue.Queue = queue.Queue()
+
     def generate():
-        while True:
-            try:
-                msg = _sse_queue.get(timeout=30)
-                yield msg
-            except queue.Empty:
-                yield "event: ping\ndata: {}\n\n"
+        # Register this client and replay current log so they're caught up
+        with _sse_clients_lock:
+            replay = list(_vote_log)          # snapshot before registering
+            _sse_clients.append(client_q)
+
+        # Send replay burst
+        for msg in replay:
+            yield msg
+
+        # Then stream live events as they come
+        try:
+            while True:
+                try:
+                    msg = client_q.get(timeout=30)
+                    yield msg
+                except queue.Empty:
+                    yield "event: ping\ndata: {}\n\n"
+        finally:
+            with _sse_clients_lock:
+                try:
+                    _sse_clients.remove(client_q)
+                except ValueError:
+                    pass
 
     return Response(generate(), mimetype="text/event-stream",
                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
