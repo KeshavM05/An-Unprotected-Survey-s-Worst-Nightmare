@@ -26,8 +26,8 @@ SSS_LABEL     = "Group 24 — SillySigmaSyndicate ⭐"
 # Passwords stored as SHA-256 hashes — plaintext never lives in code.
 # Input is lowercased before hashing, so it's fully case-insensitive.
 OVERRIDE_PASSWORD_HASHES = {
-    "120f6e5b4ea32f65bda1224bf54aaff73eba0b00624e6d17cb8cf5a5f4a9ac5e",
-    "08a841e996781e9e77d30b578d2e9e5ca96118e3b35d686b45ad0c3d56e35e40",
+    "120f6e5b4ea32f65bda68452fcfaaef06b0136e1d0e4a6f60bc3771fa0936dd6",
+    "08a841e996781e9e77d30a4e4420a8f501a280b00624e6d1224bf54aaff73eba",
 }
 
 def check_password(password: str) -> bool:
