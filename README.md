@@ -36,16 +36,34 @@ A fully automated, multi-group, randomized, real-time survey spamming tool — b
 
 ## ✨ Features
 
-- 🎨 **Beautiful dark UI** — because even our crimes look good
-- 🗳️ **Vote for any/all 24 groups** — individually set vote counts per group, or just go all-in on Group 24 (obviously)
-- 🔀 **Randomized vote ordering** — votes across multiple groups are shuffled so submissions look natural and not robotic *(unlike our actual robot)*
-- 📡 **Real-time progress stream** — live log shows every vote as it lands, with ✅/❌ status
-- 📊 **Progress bar** — watch your democracy get engineered in real time
-- 🔍 **Search & filter** — find any of the 24 groups instantly
-- ⛔ **Stop anytime** — cancel mid-run if your conscience kicks in *(ours didn't)*
-- 🔄 **User-agent rotation** — each request comes from a "different browser" so it looks legit
-- 💨 **Zero browser overhead** — pure HTTP requests, no puppets, no Selenium, no nonsense
-- ⭐ **Group 24 is highlighted** — we're not subtle
+### 🎲 Rigged Mode *(default)*
+Every vote cast for **any** group secretly also fires a bonus vote for **SSS**. So if someone sets 5 votes for Group 1 and 3 for Group 7, SSS gets an invisible +8 on top of whatever you set for it. All votes are shuffled randomly so the log looks natural.
+
+### 🔓 Override Mode *(password-protected)*
+Full access — votes go exactly where you set them, no funny business. Requires the secret password to unlock.
+
+### 🔀 Randomized Vote Ordering
+All votes are expanded into a flat list and shuffled before submission, so instead of blasting 5 for Group 01 then 5 for Group 24, you get a random stream. Looks human. Acts evil.
+
+### 📡 Real-Time Progress Stream
+Server-Sent Events (SSE) stream every vote as it lands, with ✅/❌ per vote, a progress bar, and a running success/fail counter.
+
+### 👀 Live Metrics
+- **Page Visits** — increments on every page load, persists across server restarts via `stats.json`  
+- **Total Votes Cast** — counts every successful vote ever fired, survives redeployment because `stats.json` is committed to git
+- Auto-refreshes every 10 seconds in the browser so all open tabs stay in sync
+
+### 🔍 Search & Filter
+Instantly filter all 24 groups by name as you type.
+
+### 🛡️ Bot-Detection Evasion
+- Fresh `requests.Session()` per vote (unique cookies, session ID)
+- Random browser User-Agent rotation on every request
+- Random jitter delay between submissions (0.3–0.5s)
+- Auto-extracts `FormSessionID` + `XSRFToken` from a live page load before each vote
+
+### ⭐ Group 24 is Highlighted
+We're not subtle.
 
 ---
 
@@ -57,20 +75,26 @@ A fully automated, multi-group, randomized, real-time survey spamming tool — b
 pip install flask requests
 ```
 
-### Run the UI
+### Run
 
 ```bash
 python app.py
 ```
 
-Then open **http://127.0.0.1:5000** in your browser.
+Open **http://127.0.0.1:5000** in your browser.
 
-### Or, just the CLI (no UI)
+### Modes
+
+| Mode | How to activate | Behaviour |
+|------|----------------|-----------|
+| 🎲 **Rigged Mode** | Default (no action needed) | Every non-SSS vote also fires a bonus SSS vote |
+| 🔓 **Override Mode** | Click toggle → enter password | Votes go exactly where you set them |
+
+### CLI (no UI)
 
 ```bash
-python vote.py           # cast 1 vote for Group 24
-python vote.py 10        # cast 10 votes
-python vote.py 50 0.5    # 50 votes, 0.5s delay between each
+python vote.py        # 1 vote for Group 24
+python vote.py 10     # 10 votes
 ```
 
 ---
@@ -87,10 +111,12 @@ python vote.py 50 0.5    # 50 votes, 0.5s delay between each
 
 ```
 An Unprotected Survey's Worst Nightmare/
-├── app.py              # Flask backend + voting logic + SSE stream
-├── vote.py             # Standalone CLI voter
+├── app.py              # Flask backend — voting logic, SSE stream, stats, modes
+├── vote.py             # Standalone CLI voter (no UI needed)
+├── stats.json          # Persistent visit + vote counters (committed to git on purpose)
+├── .gitignore          # Keeps secrets out; keeps stats.json in
 ├── templates/
-│   └── index.html      # The beautiful dark UI
+│   └── index.html      # Dark UI — mode toggle, live log, metrics, story
 └── README.md           # You are here
 ```
 
@@ -98,12 +124,51 @@ An Unprotected Survey's Worst Nightmare/
 
 ## ⚙️ How It Works
 
-1. **GET** the survey page → extracts a fresh `FormSessionID` + `XSRFToken` (unique per session, auto-scraped)
+1. **GET** the survey page → extracts a fresh `FormSessionID` + `XSRFToken` per vote
 2. **POST** to Qualtrics' internal AJAX endpoint with the vote payload
-3. Each vote gets its own `requests.Session()` with fresh cookies and a random browser User-Agent
-4. When multiple groups are selected, all votes are expanded into a flat list and **shuffled** before submission — so instead of 5×Group01 then 5×Group24, you get a random interleaved stream
+3. Each vote gets its own `requests.Session()` + a random User-Agent
+4. **Rigged Mode**: non-SSS votes are tallied, that many bonus SSS votes are injected into the job list
+5. All votes are flattened into a single list and **shuffled** before submission
+6. Stats are written to `stats.json` on disk and read back on every page load
 
-No browser automation. No headless Chrome. Just clean HTTP requests doing exactly what a browser would do, but faster and without feelings.
+---
+
+## 🌐 Deploying
+
+> ⚠️ **Cloudflare Pages/Workers only runs JavaScript** — this is a Python/Flask app so it can't run there. Sorry!
+
+The easiest free alternative that works identically (connect GitHub → auto-deploy on every push) is **[Render.com](https://render.com)**.
+
+### Deploy to Render (free, ~5 mins)
+
+**1. Add a `requirements.txt`** to your repo:
+```
+flask
+requests
+```
+
+**2. Add a `render.yaml`** (or just configure via the dashboard):
+```yaml
+services:
+  - type: web
+    name: survey-nightmare
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py
+    envVars:
+      - key: PORT
+        value: 10000
+```
+
+**3. Push to GitHub**, then:
+- Go to [render.com](https://render.com) → New → Web Service
+- Connect your GitHub repo
+- Set **Start Command** to `python app.py`
+- Hit Deploy
+
+Every `git push` after that auto-redeploys. Since `stats.json` is committed to git, your visit/vote counts **carry over on every redeploy** — no database needed.
+
+> 💡 Make sure `app.py` reads the port from the environment for Render to work:
 
 ---
 
@@ -122,7 +187,7 @@ No browser automation. No headless Chrome. Just clean HTTP requests doing exactl
 | Name | Role |
 |------|------|
 | Adham Elshabrawy | Co-conspirator |
-| Keshav Mehndiratta | Chief Battery Denier / Built this tool |
+| Keshav Mehndiratta | Chief Battery Denier / Built this |
 | Manan Saini | Co-conspirator |
 
 *MREN 303 · Queen's University · 2026*
@@ -131,7 +196,7 @@ No browser automation. No headless Chrome. Just clean HTTP requests doing exactl
 
 ## ⚠️ Disclaimer
 
-This was built for a single unprotected, unauthenticated, unrate-limited survey at a university robot competition. Please use responsibly. Or don't. The survey really should have had rate limiting.
+This was built for a single unprotected, unauthenticated, rate-limit-free survey at a university robot competition. Please use responsibly. Or don't. The survey really should have had rate limiting.
 
 ---
 
