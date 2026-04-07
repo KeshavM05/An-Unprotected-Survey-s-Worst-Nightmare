@@ -884,10 +884,17 @@
 
   <!-- Queue modal -->
   <div class="modal-backdrop" id="queueModalBackdrop" onclick="closeQueueModal(event)">
-    <div class="modal">
-      <div class="modal-title">Queue Your Votes</div>
+    <div class="modal" style="position:relative;">
+      <!-- Close Cross -->
+      <div onclick="closeQueueModal()" style="position:absolute; top:20px; right:24px; font-size:26px; font-weight:bold; cursor:pointer; color:var(--text-muted); line-height:1; transition:color 0.2s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text-muted)'">&times;</div>
+
+      <div class="modal-title" style="padding-right: 20px;">Queue Your Votes</div>
       <div class="modal-sub">
         A voting cycle is already securely executing. Where would you like to place your payload?
+      </div>
+      
+      <!-- Better human readable info -->
+      <div id="queueReadout" style="padding: 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 20px; font-size: 13px; color: var(--text); text-align: center;">
       </div>
       
       <div class="modal-actions" style="margin-bottom: 20px;">
@@ -902,8 +909,8 @@
       <div class="modal-error" id="queuePwError"></div>
       
       <div class="modal-actions">
-        <button class="btn btn-ghost" onclick="closeQueueModal()">Cancel</button>
-        <button class="btn btn-accent" onclick="submitQueue('front')">Insert Next</button>
+        <!-- Replaced Cancel with Add to Front -->
+        <button class="btn btn-primary" style="width:100%" onclick="submitQueue('front')">Add to Front of Queue</button>
       </div>
     </div>
   </div>
@@ -1192,6 +1199,13 @@
   let _pendingQueueJobs = [];
   function openQueueModal(jobs) {
     _pendingQueueJobs = jobs;
+    
+    // Human readable math
+    let totalVotes = jobs.reduce((sum, j) => sum + j.count, 0);
+    let groupCount = jobs.length;
+    let groupWord = groupCount === 1 ? 'group' : 'groups';
+    document.getElementById('queueReadout').innerHTML = `You are queuing <strong><span style="color:var(--accent);">${totalVotes} total votes</span></strong> across ${groupCount} ${groupWord}.`;
+
     document.getElementById('queuePwInput').value = '';
     document.getElementById('queuePwError').textContent = '';
     document.getElementById('queueModalBackdrop').classList.add('show');
