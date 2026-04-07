@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Survey Spammer 🗳️</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Reset & Base ─────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #080c14;
+      --surface:      #0f1623;
+      --surface2:     #161e2e;
+      --border:       #1e2d45;
+      --accent:       #3b82f6;
+      --accent-glow:  #3b82f640;
+      --accent2:      #8b5cf6;
+      --green:        #22c55e;
+      --red:          #ef4444;
+      --yellow:       #f59e0b;
+      --text:         #e2e8f0;
+      --text-muted:   #64748b;
+      --text-dim:     #94a3b8;
+      --radius:       12px;
+      --radius-lg:    18px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Background gradient orbs ─────────────────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 20% 10%, #1e3a5f28 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 80%, #2e1a5f18 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Layout ───────────────────────────────────────────────────────────── */
+    .page {
+      position: relative;
+      z-index: 1;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 32px 24px 80px;
+    }
+
+    /* ── Header ───────────────────────────────────────────────────────────── */
+    .header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    .header-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--accent-glow);
+      border: 1px solid #3b82f630;
+      border-radius: 999px;
+      padding: 4px 14px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 18px;
+    }
+
+    .header h1 {
+      font-size: clamp(28px, 5vw, 48px);
+      font-weight: 800;
+      background: linear-gradient(135deg, #e2e8f0 0%, #94a3b8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1.1;
+      margin-bottom: 12px;
+    }
+
+    .header p {
+      color: var(--text-muted);
+      font-size: 15px;
+      max-width: 480px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+    /* ── Controls bar ─────────────────────────────────────────────────────── */
+    .controls-bar {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 28px;
+    }
+
+    .search-box {
+      flex: 1;
+      min-width: 200px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 16px;
+      transition: border-color .2s;
+    }
+
+    .search-box:focus-within { border-color: var(--accent); }
+
+    .search-box svg { color: var(--text-muted); flex-shrink: 0; }
+
+    .search-box input {
+      flex: 1;
+      background: none;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-size: 14px;
+      font-family: inherit;
+    }
+
+    .search-box input::placeholder { color: var(--text-muted); }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border-radius: var(--radius);
+      font-size: 14px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all .2s;
+      white-space: nowrap;
+    }
+
+    .btn-ghost {
+      background: var(--surface);
+      border-color: var(--border);
+      color: var(--text-dim);
+    }
+    .btn-ghost:hover { border-color: var(--text-muted); color: var(--text); }
+
+    .btn-accent {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+    .btn-accent:hover { background: #2563eb; box-shadow: 0 0 30px #3b82f660; transform: translateY(-1px); }
+    .btn-accent:active { transform: translateY(0); }
+    .btn-accent:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+    .btn-danger {
+      background: #7f1d1d;
+      border-color: var(--red);
+      color: var(--red);
+    }
+    .btn-danger:hover { background: #991b1b; }
+
+    /* ── Stats strip ──────────────────────────────────────────────────────── */
+    .stats-strip {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 28px;
+      flex-wrap: wrap;
+    }
+
+    .stat-pill {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 6px 16px;
+      font-size: 13px;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .stat-pill strong { color: var(--text); }
+
+    /* ── Grid ─────────────────────────────────────────────────────────────── */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 14px;
+      margin-bottom: 32px;
+    }
+
+    /* ── Group Card ───────────────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 18px 20px;
+      transition: border-color .2s, transform .2s, box-shadow .2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, #3b82f605, transparent 60%);
+      opacity: 0;
+      transition: opacity .3s;
+      pointer-events: none;
+    }
+
+    .card:hover { border-color: #2d4060; transform: translateY(-2px); box-shadow: 0 8px 30px #00000040; }
+    .card:hover::before { opacity: 1; }
+    .card.has-votes { border-color: #1d4ed860; }
+    .card.has-votes::before { opacity: 1; }
+    .card.highlight { border-color: #7c3aed80; }
+    .card.highlight::before {
+      background: linear-gradient(135deg, #7c3aed0a, transparent 60%);
+      opacity: 1;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .card-label {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.3;
+    }
+
+    .card-sublabel {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+      line-height: 1.4;
+    }
+
+    .star-badge {
+      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 999px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    /* ── Vote counter ─────────────────────────────────────────────────────── */
+    .vote-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .counter-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all .15s;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+
+    .counter-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
+    .counter-btn:active { transform: scale(.92); }
+
+    .vote-input {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 15px;
+      font-weight: 600;
+      font-family: inherit;
+      text-align: center;
+      padding: 6px 8px;
+      width: 100%;
+      transition: border-color .2s;
+      -moz-appearance: textfield;
+    }
+
+    .vote-input::-webkit-outer-spin-button,
+    .vote-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+    .vote-input:focus { outline: none; border-color: var(--accent); }
+
+    .vote-dots {
+      display: flex;
+      gap: 3px;
+      flex-wrap: wrap;
+      max-width: 80px;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--border);
+      transition: background .2s;
+    }
+
+    .dot.filled { background: var(--accent); }
+
+    /* ── Progress panel ───────────────────────────────────────────────────── */
+    .progress-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      display: none;
+      margin-bottom: 28px;
+      position: sticky;
+      top: 16px;
+      z-index: 10;
+    }
+
+    .progress-panel.active { display: block; }
+
+    .progress-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .progress-title {
+      font-size: 15px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .progress-bar-wrap {
+      background: var(--surface2);
+      border-radius: 999px;
+      height: 8px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 999px;
+      transition: width .3s ease;
+      width: 0%;
+    }
+
+    .progress-stats {
+      display: flex;
+      gap: 20px;
+      font-size: 13px;
+      color: var(--text-dim);
+      margin-bottom: 14px;
+    }
+
+    .progress-stats span strong { color: var(--text); }
+    .progress-stats .s-green strong { color: var(--green); }
+    .progress-stats .s-red   strong { color: var(--red); }
+
+    /* ── Log ─────────────────────────────────────────────────────────────── */
+    .log {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      height: 140px;
+      overflow-y: auto;
+      font-size: 12px;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .log-entry {
+      display: flex;
+      gap: 8px;
+      animation: fadeIn .2s ease;
+    }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } }
+
+    .log-ts   { color: var(--text-muted); flex-shrink: 0; }
+    .log-ok   { color: var(--green); }
+    .log-fail { color: var(--red); }
+    .log-info { color: var(--accent); }
+
+    /* ── Done banner ─────────────────────────────────────────────────────── */
+    .done-banner {
+      display: none;
+      background: #052e16;
+      border: 1px solid #166534;
+      border-radius: var(--radius);
+      padding: 14px 20px;
+      color: var(--green);
+      font-weight: 600;
+      font-size: 15px;
+      margin-top: 12px;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .done-banner.show { display: flex; }
+
+    /* ── Scrollbar ───────────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+
+    /* ── Hidden ──────────────────────────────────────────────────────────── */
+    .hidden { display: none !important; }
+
+    /* ── Responsive ──────────────────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .grid { grid-template-columns: 1fr; }
+      .controls-bar { flex-direction: column; }
+      .search-box { min-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-badge">
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><circle cx="5" cy="5" r="5"/></svg>
+      MREN 303 · People's Choice Award
+    </div>
+    <h1>Survey Spammer 🗳️</h1>
+    <p>Set how many votes to cast per group, then hit Launch. Real-time progress shown below.</p>
+  </header>
+
+  <!-- Progress panel (sticky) -->
+  <div id="progressPanel" class="progress-panel">
+    <div class="progress-header">
+      <div class="progress-title">
+        <div id="spinnerEl" class="spinner"></div>
+        <span id="progressTitle">Voting in progress…</span>
+      </div>
+      <button id="stopBtn" class="btn btn-danger" onclick="stopVoting()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+        Stop
+      </button>
+    </div>
+
+    <div class="progress-bar-wrap">
+      <div id="progressBar" class="progress-bar-fill"></div>
+    </div>
+
+    <div class="progress-stats">
+      <span>Done: <strong id="statDone">0</strong> / <strong id="statTotal">0</strong></span>
+      <span class="s-green">✅ <strong id="statSuccess">0</strong></span>
+      <span class="s-red">❌ <strong id="statFail">0</strong></span>
+    </div>
+
+    <div id="log" class="log"></div>
+
+    <div id="doneBanner" class="done-banner">
+      🎉 All done! <span id="doneText"></span>
+    </div>
+  </div>
+
+  <!-- Controls bar -->
+  <div class="controls-bar">
+    <div class="search-box">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input id="searchInput" type="text" placeholder="Search groups…" oninput="filterCards()" />
+    </div>
+    <button class="btn btn-ghost" onclick="clearAll()">Clear all</button>
+    <div class="stat-pill">
+      Total votes: <strong id="totalVoteCount">0</strong>
+    </div>
+    <button id="launchBtn" class="btn btn-accent" onclick="launchVoting()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      Launch Votes
+    </button>
+  </div>
+
+  <!-- Group grid -->
+  <div id="grid" class="grid">
+    {% for c in choices %}
+    <div class="card {% if c.id == '24' %}highlight{% endif %}"
+         id="card-{{ c.id }}"
+         data-label="{{ c.label }} {{ c.display }}">
+
+      <div class="card-header">
+        <div>
+          <div class="card-label">{{ c.label }}</div>
+          <div class="card-sublabel">{{ c.display }}</div>
+        </div>
+        {% if c.id == '24' %}
+        <span class="star-badge">⭐ Our Group</span>
+        {% endif %}
+      </div>
+
+      <div class="vote-row">
+        <button class="counter-btn" onclick="adjustVote('{{ c.id }}', -1)">−</button>
+        <input
+          class="vote-input"
+          id="vote-{{ c.id }}"
+          type="number"
+          min="0"
+          max="999"
+          value="0"
+          oninput="onVoteChange('{{ c.id }}')"
+        />
+        <button class="counter-btn" onclick="adjustVote('{{ c.id }}', 1)">+</button>
+        <div class="vote-dots" id="dots-{{ c.id }}">
+          {% for _ in range(5) %}
+          <div class="dot" id="dot-{{ c.id }}-{{ loop.index0 }}"></div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+</div>
+
+<script>
+  const CHOICES = {{ choices | tojson }};
+  let eventSource = null;
+  let isVoting = false;
+  let failCount = 0;
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  function getVote(id) {
+    return Math.max(0, parseInt(document.getElementById(`vote-${id}`)?.value || '0', 10) || 0);
+  }
+
+  function setVote(id, v) {
+    const el = document.getElementById(`vote-${id}`);
+    if (!el) return;
+    v = Math.max(0, Math.min(999, v));
+    el.value = v;
+    onVoteChange(id);
+  }
+
+  function adjustVote(id, delta) {
+    setVote(id, getVote(id) + delta);
+  }
+
+  function onVoteChange(id) {
+    const v = getVote(id);
+    const card = document.getElementById(`card-${id}`);
+    card.classList.toggle('has-votes', v > 0);
+
+    // Update dots (max 5 dots visualise up to 5 votes)
+    for (let i = 0; i < 5; i++) {
+      document.getElementById(`dot-${id}-${i}`)?.classList.toggle('filled', i < Math.min(v, 5));
+    }
+
+    updateTotal();
+  }
+
+  function updateTotal() {
+    const total = CHOICES.reduce((s, c) => s + getVote(c.id), 0);
+    document.getElementById('totalVoteCount').textContent = total;
+    document.getElementById('statTotal').textContent = total;
+  }
+
+  function clearAll() {
+    CHOICES.forEach(c => setVote(c.id, 0));
+  }
+
+  function filterCards() {
+    const q = document.getElementById('searchInput').value.toLowerCase();
+    document.querySelectorAll('.card').forEach(card => {
+      card.style.display = card.dataset.label.toLowerCase().includes(q) ? '' : 'none';
+    });
+  }
+
+  // ── Log ───────────────────────────────────────────────────────────────────
+  function logLine(text, cls = 'log-info') {
+    const log = document.getElementById('log');
+    const now = new Date().toLocaleTimeString('en-US', {hour12: false});
+    const entry = document.createElement('div');
+    entry.className = 'log-entry';
+    entry.innerHTML = `<span class="log-ts">${now}</span><span class="${cls}">${text}</span>`;
+    log.appendChild(entry);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  // ── SSE ───────────────────────────────────────────────────────────────────
+  function connectSSE() {
+    if (eventSource) { eventSource.close(); }
+    eventSource = new EventSource('/api/stream');
+
+    eventSource.addEventListener('start', e => {
+      const d = JSON.parse(e.data);
+      document.getElementById('statTotal').textContent = d.total;
+      document.getElementById('statDone').textContent = '0';
+      document.getElementById('statSuccess').textContent = '0';
+      document.getElementById('statFail').textContent = '0';
+      document.getElementById('progressBar').style.width = '0%';
+      document.getElementById('doneBanner').classList.remove('show');
+      document.getElementById('log').innerHTML = '';
+      failCount = 0;
+      logLine(`Starting ${d.total} total votes…`);
+    });
+
+    eventSource.addEventListener('progress', e => {
+      const d = JSON.parse(e.data);
+      const pct = Math.round(d.done / d.total * 100);
+      document.getElementById('progressBar').style.width = pct + '%';
+      document.getElementById('statDone').textContent    = d.done;
+      document.getElementById('statSuccess').textContent = d.success;
+
+      const fails = d.done - d.success;
+      document.getElementById('statFail').textContent = fails;
+
+      const symbol = d.ok ? '✅' : '❌';
+      const cls    = d.ok ? 'log-ok' : 'log-fail';
+      logLine(`${symbol} [${d.vote_num}/${d.vote_total}] ${d.label}`, cls);
+    });
+
+    eventSource.addEventListener('done', e => {
+      const d = JSON.parse(e.data);
+      document.getElementById('progressBar').style.width = '100%';
+      document.getElementById('spinnerEl').style.display = 'none';
+      document.getElementById('progressTitle').textContent = 'Done!';
+      document.getElementById('doneText').textContent =
+        `${d.success} / ${d.total} votes cast successfully.`;
+      document.getElementById('doneBanner').classList.add('show');
+      document.getElementById('stopBtn').classList.add('hidden');
+      logLine(`🏁 Finished — ${d.success}/${d.total} successful`, 'log-info');
+      setVotingState(false);
+    });
+
+    eventSource.addEventListener('stopped', e => {
+      logLine('⛔ Stopped by user.', 'log-fail');
+      setVotingState(false);
+    });
+  }
+
+  // ── Launch / Stop ─────────────────────────────────────────────────────────
+  function launchVoting() {
+    const jobs = CHOICES
+      .map(c => ({ choice_id: c.id, label: c.label, count: getVote(c.id) }))
+      .filter(j => j.count > 0);
+
+    if (!jobs.length) {
+      alert('Set at least one vote count first!');
+      return;
+    }
+
+    connectSSE();
+
+    fetch('/api/vote', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ jobs }),
+    }).then(r => r.json()).then(data => {
+      if (data.error) { alert(data.error); return; }
+      setVotingState(true);
+    });
+  }
+
+  function stopVoting() {
+    fetch('/api/stop', { method: 'POST' });
+  }
+
+  function setVotingState(voting) {
+    isVoting = voting;
+    document.getElementById('launchBtn').disabled = voting;
+    document.getElementById('progressPanel').classList.toggle('active', voting || true);
+    document.getElementById('spinnerEl').style.display  = voting ? '' : 'none';
+    document.getElementById('stopBtn').classList.toggle('hidden', !voting);
+    if (voting) {
+      document.getElementById('progressTitle').textContent = 'Voting in progress…';
+      document.getElementById('doneBanner').classList.remove('show');
+    }
+  }
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+  updateTotal();
+</script>
+</body>
+</html>
