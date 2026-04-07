@@ -198,41 +198,6 @@
 
     .stat-pill strong { color: var(--text); }
 
-    /* ── Bulk Actions ─────────────────────────────────────────────────────── */
-    .bulk-bar {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: 16px 20px;
-      margin-bottom: 24px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      flex-wrap: wrap;
-    }
-    
-    .bulk-bar label {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text);
-      cursor: pointer;
-    }
-    
-    .bulk-input {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--text);
-      font-size: 14px;
-      padding: 8px 12px;
-      width: 100px;
-      outline: none;
-    }
-    .bulk-input:focus { border-color: var(--accent); }
-
     /* ── Grid ─────────────────────────────────────────────────────────────── */
     .grid {
       display: grid;
@@ -943,17 +908,24 @@
     </div>
   </div>
 
-  <!-- Bulk Actions Bar -->
-  <div class="bulk-bar">
-    <label>
-      <input type="checkbox" class="card-checkbox" id="selectAllCb" onchange="toggleSelectAll()">
-      <span>Select All</span>
-    </label>
-    <div style="width: 1px; height: 24px; background: var(--border); margin: 0 4px;"></div>
-    <input type="number" class="bulk-input" id="bulkInput" placeholder="Votes..." min="0">
-    <button class="btn btn-primary" style="padding: 8px 16px;" onclick="applyBulkVotes()">
-      Overwrite Selected
-    </button>
+  <!-- Bulk Actions Card -->
+  <div id="bulkGrid" style="display: none; justify-content: center; margin-bottom: 24px;">
+    <div class="card highlight" id="card-all" style="width: 320px;">
+      <div class="card-header" onclick="toggleCardCheck('all', event); toggleSelectAll()">
+        <div style="display:flex; gap:12px;">
+          <input type="checkbox" class="card-checkbox" id="cb-all" onchange="toggleSelectAll()" onclick="event.stopPropagation()">
+          <div>
+            <div class="card-label">Select All</div>
+            <div class="card-sublabel">Apply votes to selected groups</div>
+          </div>
+        </div>
+      </div>
+      <div class="vote-row">
+        <button class="counter-btn" onclick="adjustBulkVote(-1)">−</button>
+        <input class="vote-input" id="vote-all" type="number" min="0" max="999" placeholder="0" oninput="applyBulkVotes(this.value)">
+        <button class="counter-btn" onclick="adjustBulkVote(1)">+</button>
+      </div>
+    </div>
   </div>
 
   <!-- Group grid -->
@@ -1007,7 +979,7 @@
 
   // ── Bulk Actions ──────────────────────────────────────────────────────────
   function toggleSelectAll() {
-    const isChecked = document.getElementById('selectAllCb').checked;
+    const isChecked = document.getElementById('cb-all').checked;
     document.querySelectorAll('.group-cb').forEach(cb => cb.checked = isChecked);
   }
 
@@ -1017,30 +989,28 @@
     cb.checked = !cb.checked;
   }
 
-  function applyBulkVotes() {
-    const val = parseInt(document.getElementById('bulkInput').value, 10);
-    if (isNaN(val) || val < 0) {
-      alert('Please enter a valid number of votes to apply.');
-      return;
-    }
+  function adjustBulkVote(delta) {
+    const input = document.getElementById('vote-all');
+    let current = parseInt(input.value, 10) || 0;
+    let next = Math.max(0, current + delta);
+    input.value = next;
+    applyBulkVotes(next);
+  }
+
+  function applyBulkVotes(val) {
+    val = parseInt(val, 10);
+    if (isNaN(val) || val < 0) val = 0;
     
-    let appliedCount = 0;
     document.querySelectorAll('.group-cb:checked').forEach(cb => {
       const id = cb.id.replace('cb-', '');
       const inputEl = document.getElementById('vote-' + id);
       if (inputEl) {
         inputEl.value = val;
-        appliedCount++;
         // Trigger UI update classes
         const card = document.getElementById('card-' + id);
         card.classList.toggle('has-votes', val > 0);
       }
     });
-
-    if (appliedCount === 0) {
-      alert('Please select at least one group to apply votes to.');
-      return;
-    }
 
     updateTotal();
   }
@@ -1173,6 +1143,13 @@
     banner.innerHTML = mode === 'rigged'
       ? '<span class="tag rigged">🎲 Every vote not given to SSS will also be cast as a bonus vote for SSS</span>'
       : '<span class="tag override">🔓 Full access — votes go exactly where you set them</span>';
+
+    // Show/hide bulk features
+    const isOverride = (mode === 'override');
+    document.getElementById('bulkGrid').style.display = isOverride ? 'flex' : 'none';
+    document.querySelectorAll('.card-checkbox').forEach(cb => {
+      cb.style.display = isOverride ? 'inline-block' : 'none';
+    });
   }
 
   function requestOverride() {
@@ -1318,6 +1295,7 @@
 
   // ── Init ──────────────────────────────────────────────────────────────────
   updateTotal();
+  setMode('rigged');
   logLine('System initialized. Waiting for launch.', 'log-ts');
   connectSSE(); // always connect, so we get live updates sent by other tabs
 
