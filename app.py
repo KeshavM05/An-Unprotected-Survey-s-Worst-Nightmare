@@ -137,12 +137,24 @@ def _single_vote(choice_id: str) -> bool:
 
 
 def _run_votes(jobs: list[dict]):
-    """jobs = [{"choice_id": "24", "label": "Group 24 ...", "count": 5}, ...]"""
+    """jobs = [{"choice_id": "24", "label": "Group 24 ...", "count": 5}, ...]
+
+    All votes are expanded into a flat list and shuffled before submission,
+    so entries for different groups are interleaved randomly rather than
+    submitted in a block-per-group order.
+    """
     global _voting_active
     _voting_active = True
 
-    total = sum(j["count"] for j in jobs)
-    done = 0
+    # Build a flat, shuffled list of every individual vote to cast
+    flat: list[dict] = []
+    for job in jobs:
+        for _ in range(job["count"]):
+            flat.append({"choice_id": job["choice_id"], "label": job["label"]})
+    random.shuffle(flat)
+
+    total   = len(flat)
+    done    = 0
     success = 0
 
     def emit(event: str, data: dict):
@@ -150,33 +162,28 @@ def _run_votes(jobs: list[dict]):
 
     emit("start", {"total": total})
 
-    for job in jobs:
-        cid   = job["choice_id"]
-        label = job["label"]
-        count = job["count"]
+    for i, item in enumerate(flat):
+        if not _voting_active:
+            emit("stopped", {"done": done, "success": success})
+            return
 
-        for i in range(count):
-            if not _voting_active:
-                emit("stopped", {"done": done, "success": success})
-                return
+        ok = _single_vote(item["choice_id"])
+        done += 1
+        if ok:
+            success += 1
 
-            ok = _single_vote(cid)
-            done += 1
-            if ok:
-                success += 1
+        emit("progress", {
+            "done": done,
+            "total": total,
+            "success": success,
+            "label": item["label"],
+            "vote_num": done,
+            "vote_total": total,
+            "ok": ok,
+        })
 
-            emit("progress", {
-                "done": done,
-                "total": total,
-                "success": success,
-                "label": label,
-                "vote_num": i + 1,
-                "vote_total": count,
-                "ok": ok,
-            })
-
-            if i < count - 1:
-                time.sleep(0.3 + random.uniform(0, 0.2))
+        if i < total - 1:
+            time.sleep(0.3 + random.uniform(0, 0.2))
 
     emit("done", {"done": done, "total": total, "success": success})
     _voting_active = False
