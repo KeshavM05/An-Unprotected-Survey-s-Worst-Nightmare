@@ -894,23 +894,22 @@
       </div>
       
       <!-- Better human readable info -->
-      <div id="queueReadout" style="padding: 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 20px; font-size: 13px; color: var(--text); text-align: center;">
+      <div id="queueReadout" style="padding: 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 24px; font-size: 13px; color: var(--text); text-align: center;">
       </div>
       
-      <div class="modal-actions" style="margin-bottom: 20px;">
-        <button class="btn btn-accent" style="width:100%" onclick="submitQueue('end')">Add to Back of Queue</button>
+      <div class="modal-sub" style="font-weight:800; color:var(--text); margin-bottom:8px;">
+        Override (Optional)
+      </div>
+      <div class="modal-sub" style="margin-bottom:12px;">
+        Enter the password if you wish to bypass the line and add your payload directly to the front.
       </div>
       
-      <div class="modal-sub" style="margin-top:20px; font-weight:800; color:var(--text); text-align:center;">
-        — OR OVERRIDE (PRIORITY) —
-      </div>
-      
-      <input type="password" id="queuePwInput" class="modal-input" placeholder="Secret password" onkeydown="if(event.key==='Enter') submitQueue('front')">
+      <input type="password" id="queuePwInput" class="modal-input" placeholder="Secret password..." onkeydown="if(event.key==='Enter') submitQueue('front')">
       <div class="modal-error" id="queuePwError"></div>
       
-      <div class="modal-actions">
-        <!-- Replaced Cancel with Add to Front -->
-        <button class="btn btn-primary" style="width:100%" onclick="submitQueue('front')">Add to Front of Queue</button>
+      <div class="modal-actions" style="margin-top:20px; display:flex; gap:10px;">
+        <button class="btn btn-primary" style="flex:1;" onclick="submitQueue('front')">Front of Queue</button>
+        <button class="btn btn-accent" style="flex:1;" onclick="submitQueue('end')">Back of Queue</button>
       </div>
     </div>
   </div>
