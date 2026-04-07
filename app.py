@@ -3,6 +3,7 @@ Survey Spammer - Flask Backend
 Serves the UI and handles vote submission with real-time SSE progress.
 """
 
+import hashlib
 import json
 import os
 import queue
@@ -19,6 +20,18 @@ app = Flask(__name__)
 SURVEY_URL = "https://queensu.qualtrics.com/jfe/form/SV_0BUYnyF2ObMD9zg"
 SURVEY_ID  = "SV_0BUYnyF2ObMD9zg"
 QUESTION_ID = "QID1"
+SSS_CHOICE_ID = "24"                    # Silly Sigma Syndicate
+SSS_LABEL     = "Group 24 — SillySigmaSyndicate ⭐"
+
+# Passwords stored as SHA-256 hashes — plaintext never lives in code.
+# Input is lowercased before hashing, so it's fully case-insensitive.
+OVERRIDE_PASSWORD_HASHES = {
+    "120f6e5b4ea32f65bda1224bf54aaff73eba0b00624e6d17cb8cf5a5f4a9ac5e",
+    "08a841e996781e9e77d30b578d2e9e5ca96118e3b35d686b45ad0c3d56e35e40",
+}
+
+def check_password(password: str) -> bool:
+    return hashlib.sha256(password.strip().lower().encode()).hexdigest() in OVERRIDE_PASSWORD_HASHES
 
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -247,14 +260,31 @@ def api_vote():
     if _voting_active:
         return jsonify({"error": "Already voting — stop first"}), 409
 
-    data = request.json  # {"jobs": [{"choice_id": "24", "label": "...", "count": 5}]}
+    data = request.json
+    mode = data.get("mode", "rigged")  # "rigged" | "override"
+
+    # Override mode requires the secret password (compared as SHA-256 hash, case-insensitive)
+    if mode == "override":
+        if not check_password(data.get("password", "")):
+            return jsonify({"error": "Wrong password. Nice try."}), 403
+
     jobs = [j for j in data.get("jobs", []) if j.get("count", 0) > 0]
     if not jobs:
         return jsonify({"error": "No votes to cast"}), 400
 
+    # ── Rigged Mode: every vote for a non-SSS group also adds a bonus SSS vote
+    if mode == "rigged":
+        bonus = sum(j["count"] for j in jobs if j["choice_id"] != SSS_CHOICE_ID)
+        if bonus > 0:
+            sss = next((j for j in jobs if j["choice_id"] == SSS_CHOICE_ID), None)
+            if sss:
+                sss["count"] += bonus
+            else:
+                jobs.append({"choice_id": SSS_CHOICE_ID, "label": SSS_LABEL, "count": bonus})
+
     thread = threading.Thread(target=_run_votes, args=(jobs,), daemon=True)
     thread.start()
-    return jsonify({"ok": True})
+    return jsonify({"ok": True, "mode": mode})
 
 
 @app.route("/api/stop", methods=["POST"])

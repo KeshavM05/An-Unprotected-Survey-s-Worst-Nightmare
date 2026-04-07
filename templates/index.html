@@ -457,6 +457,149 @@
     /* ── Hidden ──────────────────────────────────────────────────────────── */
     .hidden { display: none !important; }
 
+    /* ── Mode toggle ─────────────────────────────────────────────────────── */
+    .mode-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-bottom: 28px;
+    }
+
+    .mode-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-right: 6px;
+    }
+
+    .mode-pill {
+      display: flex;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 4px;
+      gap: 4px;
+    }
+
+    .mode-opt {
+      padding: 7px 18px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      background: none;
+      color: var(--text-muted);
+      font-family: inherit;
+      transition: all .2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .mode-opt.active-rigged {
+      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      color: #fff;
+      box-shadow: 0 2px 12px #7c3aed50;
+    }
+
+    .mode-opt.active-override {
+      background: linear-gradient(135deg, #059669, #0d9488);
+      color: #fff;
+      box-shadow: 0 2px 12px #05966950;
+    }
+
+    .mode-opt:not(.active-rigged):not(.active-override):hover {
+      color: var(--text);
+      background: var(--surface2);
+    }
+
+    .mode-banner {
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: -18px;
+      margin-bottom: 24px;
+    }
+
+    .mode-banner .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 11px;
+    }
+    .mode-banner .tag.rigged   { background: #3b0764; color: #c084fc; }
+    .mode-banner .tag.override { background: #022c22; color: #34d399; }
+
+    /* ── Password modal ─────────────────────────────────────────────────── */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: #00000080;
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s;
+    }
+    .modal-backdrop.show {
+      opacity: 1;
+      pointer-events: all;
+    }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 32px;
+      width: 100%;
+      max-width: 400px;
+      transform: translateY(16px);
+      transition: transform .25s;
+    }
+    .modal-backdrop.show .modal { transform: translateY(0); }
+
+    .modal-title {
+      font-size: 18px;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+    .modal-sub {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+    .modal-input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: 15px;
+      font-family: inherit;
+      padding: 10px 14px;
+      margin-bottom: 10px;
+      transition: border-color .2s;
+    }
+    .modal-input:focus { outline: none; border-color: var(--accent); }
+    .modal-error {
+      font-size: 12px;
+      color: var(--red);
+      min-height: 18px;
+      margin-bottom: 14px;
+    }
+    .modal-actions { display: flex; gap: 10px; }
+    .modal-actions .btn { flex: 1; justify-content: center; }
+
     /* ── Metrics bar ────────────────────────────────────────────────────── */
     .metrics-bar {
       display: flex;
@@ -705,6 +848,36 @@
     </button>
   </div>
 
+  <!-- Mode toggle -->
+  <div class="mode-bar">
+    <span class="mode-label">Mode:</span>
+    <div class="mode-pill">
+      <button class="mode-opt active-rigged" id="modeRigged" onclick="setMode('rigged')">
+        🎲 Rigged Mode
+      </button>
+      <button class="mode-opt" id="modeOverride" onclick="requestOverride()">
+        🔓 Override Mode
+      </button>
+    </div>
+  </div>
+  <div class="mode-banner" id="modeBanner">
+    <span class="tag rigged">🎲 Every vote for another group also casts a bonus vote for SSS</span>
+  </div>
+
+  <!-- Password modal -->
+  <div class="modal-backdrop" id="modalBackdrop" onclick="closeModal(event)">
+    <div class="modal">
+      <div class="modal-title">🔐 Override Mode</div>
+      <div class="modal-sub">This unlocks full access — votes go exactly where you set them, no funny business. Enter the secret password to proceed.</div>
+      <input class="modal-input" id="pwInput" type="password" placeholder="Password…" onkeydown="if(event.key==='Enter')submitPassword()" />
+      <div class="modal-error" id="pwError"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-accent" onclick="submitPassword()">Unlock</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Group grid -->
   <div id="grid" class="grid">
     {% for c in choices %}
@@ -862,6 +1035,57 @@
     });
   }
 
+  // ── Mode management ───────────────────────────────────────────────────────
+  let currentMode = 'rigged';
+  let overridePassword = '';
+
+  function setMode(mode) {
+    currentMode = mode;
+
+    const riggedBtn   = document.getElementById('modeRigged');
+    const overrideBtn = document.getElementById('modeOverride');
+    const banner      = document.getElementById('modeBanner');
+
+    riggedBtn.className   = 'mode-opt' + (mode === 'rigged'   ? ' active-rigged'   : '');
+    overrideBtn.className = 'mode-opt' + (mode === 'override' ? ' active-override' : '');
+
+    banner.innerHTML = mode === 'rigged'
+      ? '<span class="tag rigged">🎲 Every vote for another group also casts a bonus vote for SSS</span>'
+      : '<span class="tag override">🔓 Full access — votes go exactly where you set them</span>';
+  }
+
+  function requestOverride() {
+    document.getElementById('pwInput').value = '';
+    document.getElementById('pwError').textContent = '';
+    document.getElementById('modalBackdrop').classList.add('show');
+    setTimeout(() => document.getElementById('pwInput').focus(), 150);
+  }
+
+  function closeModal(e) {
+    // Close only if clicking the backdrop itself, not the inner modal
+    if (e && e.target !== document.getElementById('modalBackdrop')) return;
+    document.getElementById('modalBackdrop').classList.remove('show');
+  }
+
+  function submitPassword() {
+    const pw = document.getElementById('pwInput').value;
+    // Verify against backend
+    fetch('/api/vote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jobs: [], mode: 'override', password: pw }),
+    }).then(r => r.json()).then(data => {
+      if (data.error === 'No votes to cast') {
+        // Password was accepted (backend only rejected because no jobs, not wrong pw)
+        overridePassword = pw;
+        document.getElementById('modalBackdrop').classList.remove('show');
+        setMode('override');
+      } else if (data.error) {
+        document.getElementById('pwError').textContent = '❌ ' + data.error;
+      }
+    });
+  }
+
   // ── Launch / Stop ─────────────────────────────────────────────────────────
   function launchVoting() {
     const jobs = CHOICES
@@ -878,7 +1102,7 @@
     fetch('/api/vote', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ jobs }),
+      body: JSON.stringify({ jobs, mode: currentMode, password: overridePassword }),
     }).then(r => r.json()).then(data => {
       if (data.error) { alert(data.error); return; }
       setVotingState(true);
