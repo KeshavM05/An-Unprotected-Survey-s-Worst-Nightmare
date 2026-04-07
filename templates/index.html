@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Survey Spammer 🗳️</title>
+  <title>An Unprotected Survey's Worst Nightmare! 🗳️</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
@@ -457,6 +457,71 @@
     /* ── Hidden ──────────────────────────────────────────────────────────── */
     .hidden { display: none !important; }
 
+    /* ── Story card ──────────────────────────────────────────────────────── */
+    .story-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      margin-bottom: 32px;
+      overflow: hidden;
+    }
+
+    .story-toggle {
+      width: 100%;
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      transition: color .2s, background .2s;
+      letter-spacing: 0.04em;
+    }
+
+    .story-toggle:hover { color: var(--text); background: var(--surface2); }
+
+    .story-toggle-left { display: flex; align-items: center; gap: 10px; }
+
+    .story-toggle-icon {
+      font-size: 16px;
+      transition: transform .3s ease;
+    }
+    .story-card.open .story-toggle-icon { transform: rotate(180deg); }
+
+    .story-body {
+      display: none;
+      border-top: 1px solid var(--border);
+      padding: 24px 28px;
+    }
+    .story-card.open .story-body { display: block; }
+
+    .story-body p {
+      color: var(--text-dim);
+      font-size: 14px;
+      line-height: 1.8;
+      margin-bottom: 14px;
+      text-align: left;
+      max-width: 100%;
+    }
+    .story-body p:last-child { margin-bottom: 0; }
+    .story-body p em { color: var(--text); font-style: italic; }
+    .story-body p strong { color: var(--text); font-weight: 700; }
+    .story-body .punchline {
+      color: var(--text);
+      font-size: 15px;
+      font-weight: 700;
+      padding: 14px 18px;
+      background: var(--surface2);
+      border-left: 3px solid var(--accent2);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      margin-top: 18px;
+    }
+
     /* ── Responsive ──────────────────────────────────────────────────────── */
     @media (max-width: 600px) {
       .grid { grid-template-columns: 1fr; }
@@ -474,9 +539,42 @@
       <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><circle cx="5" cy="5" r="5"/></svg>
       MREN 303 · People's Choice Award
     </div>
-    <h1>Survey Spammer 🗳️</h1>
-    <p>Set how many votes to cast per group, then hit Launch. Real-time progress shown below.</p>
+    <h1>An Unprotected Survey's Worst Nightmare! 🗳️</h1>
+    <p>Set how many votes to cast per group, hit Launch, and watch democracy get engineered in real time.</p>
   </header>
+
+  <!-- Origin story -->
+  <div class="story-card" id="storyCard">
+    <button class="story-toggle" onclick="toggleStory()">
+      <span class="story-toggle-left">
+        📖 &nbsp;The Story — or, How We Got Here
+      </span>
+      <span class="story-toggle-icon">▾</span>
+    </button>
+    <div class="story-body">
+      <p>
+        Group 24 i.e. <strong>The Silly Sigma Syndicate</strong> made a very cool robot.
+      </p>
+      <p>
+        However, during our competition, our battery was running low (it was at <strong>5%</strong>).
+        if we had less than 50% battery we were not allowed to compete.
+      </p>
+      <p>
+        So being the geniuses that we are, instead of replacing the battery with a charged one,
+        we changed the code so that it always showed <strong>100% charged battery</strong>.
+      </p>
+      <p>
+        So we went and the most unexpected thing happened and our robot <strong>died in the middle of the competition.</strong>
+      </p>
+      <p>
+        but because we had the coolest robot, <em>peoples</em> (yes plural) wanted to vote for our robot
+        for the peoples choice award
+      </p>
+      <div class="punchline">
+        so by popular demand we present to you the <em>Unprotected Surveys Worst Nightmare.</em> ⚡
+      </div>
+    </div>
+  </div>
 
   <!-- Progress panel (sticky) -->
   <div id="progressPanel" class="progress-panel">
@@ -537,7 +635,7 @@
           <div class="card-sublabel">{{ c.display }}</div>
         </div>
         {% if c.id == '24' %}
-        <span class="star-badge">⭐ Our Group</span>
+        <span class="star-badge">⭐ People's Choice</span>
         {% endif %}
       </div>
 
@@ -718,6 +816,11 @@
       document.getElementById('progressTitle').textContent = 'Voting in progress…';
       document.getElementById('doneBanner').classList.remove('show');
     }
+  }
+
+  // ── Story toggle ──────────────────────────────────────────────────────────
+  function toggleStory() {
+    document.getElementById('storyCard').classList.toggle('open');
   }
 
   // ── Init ──────────────────────────────────────────────────────────────────

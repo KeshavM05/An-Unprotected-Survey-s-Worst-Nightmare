@@ -242,4 +242,4 @@ def api_stream():
 
 if __name__ == "__main__":
     print("🗳️  Survey Spammer UI  →  http://127.0.0.1:5000")
-    app.run(debug=False, threaded=True)
+    app.run(debug=True, threaded=True)
