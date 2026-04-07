@@ -4,6 +4,7 @@ Serves the UI and handles vote submission with real-time SSE progress.
 """
 
 import json
+import os
 import queue
 import random
 import re
@@ -58,6 +59,35 @@ SURVEY_CHOICES = [
 # Global SSE queue (single-client model, fine for local use)
 _sse_queue: queue.Queue = queue.Queue()
 _voting_active = False
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Persistent stats (stats.json)
+# ─────────────────────────────────────────────────────────────────────────────
+
+STATS_FILE = os.path.join(os.path.dirname(__file__), "stats.json")
+_stats_lock = threading.Lock()
+
+
+def _load_stats() -> dict:
+    try:
+        with open(STATS_FILE, "r") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {"visits": 0, "total_votes": 0}
+
+
+def _save_stats(stats: dict):
+    with open(STATS_FILE, "w") as f:
+        json.dump(stats, f)
+
+
+def _increment_stat(key: str, by: int = 1) -> dict:
+    """Thread-safe increment of a stat key. Returns updated stats."""
+    with _stats_lock:
+        stats = _load_stats()
+        stats[key] = stats.get(key, 0) + by
+        _save_stats(stats)
+        return stats
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -171,6 +201,7 @@ def _run_votes(jobs: list[dict]):
         done += 1
         if ok:
             success += 1
+            _increment_stat("total_votes")
 
         emit("progress", {
             "done": done,
@@ -195,12 +226,19 @@ def _run_votes(jobs: list[dict]):
 
 @app.route("/")
 def index():
-    return render_template("index.html", choices=SURVEY_CHOICES)
+    stats = _increment_stat("visits")
+    return render_template("index.html", choices=SURVEY_CHOICES, stats=stats)
 
 
 @app.route("/api/choices")
 def api_choices():
     return jsonify(SURVEY_CHOICES)
+
+
+@app.route("/api/stats")
+def api_stats():
+    with _stats_lock:
+        return jsonify(_load_stats())
 
 
 @app.route("/api/vote", methods=["POST"])

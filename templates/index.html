@@ -457,6 +457,75 @@
     /* ── Hidden ──────────────────────────────────────────────────────────── */
     .hidden { display: none !important; }
 
+    /* ── Metrics bar ────────────────────────────────────────────────────── */
+    .metrics-bar {
+      display: flex;
+      gap: 14px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 32px;
+    }
+
+    .metric-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 16px 28px;
+      text-align: center;
+      min-width: 160px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color .3s, box-shadow .3s;
+    }
+
+    .metric-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      opacity: 0.04;
+      pointer-events: none;
+    }
+
+    .metric-card.visits::before  { background: radial-gradient(circle at 50% 0%, var(--accent), transparent 70%); }
+    .metric-card.votes::before   { background: radial-gradient(circle at 50% 0%, var(--green), transparent 70%); }
+
+    .metric-card:hover { border-color: #2d4060; box-shadow: 0 4px 20px #00000030; }
+
+    .metric-icon {
+      font-size: 22px;
+      margin-bottom: 6px;
+      line-height: 1;
+    }
+
+    .metric-value {
+      font-size: 32px;
+      font-weight: 800;
+      line-height: 1;
+      margin-bottom: 4px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .metric-card.visits .metric-value { color: var(--accent); }
+    .metric-card.votes  .metric-value { color: var(--green); }
+
+    .metric-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .metric-value.bump {
+      animation: metricBump .4s ease;
+    }
+
+    @keyframes metricBump {
+      0%   { transform: scale(1); }
+      40%  { transform: scale(1.18); }
+      100% { transform: scale(1); }
+    }
+
     /* ── Story card ──────────────────────────────────────────────────────── */
     .story-card {
       background: var(--surface);
@@ -540,8 +609,22 @@
       MREN 303 · People's Choice Award
     </div>
     <h1>An Unprotected Survey's Worst Nightmare! 🗳️</h1>
-    <p>Set how many votes to cast per group, hit Launch, and watch democracy get engineered in real time.</p>
+    <p>Democracy Simplified ;)</p>
   </header>
+
+  <!-- Metrics bar -->
+  <div class="metrics-bar">
+    <div class="metric-card visits">
+      <div class="metric-icon">👀</div>
+      <div class="metric-value" id="metricVisits">{{ stats.visits }}</div>
+      <div class="metric-label">Page Visits</div>
+    </div>
+    <div class="metric-card votes">
+      <div class="metric-icon">🗳️</div>
+      <div class="metric-value" id="metricVotes">{{ stats.total_votes }}</div>
+      <div class="metric-label">Total Votes Cast</div>
+    </div>
+  </div>
 
   <!-- Origin story -->
   <div class="story-card" id="storyCard">
@@ -822,6 +905,29 @@
   function toggleStory() {
     document.getElementById('storyCard').classList.toggle('open');
   }
+
+  // ── Live metrics ──────────────────────────────────────────────────────────
+  function setMetric(id, newVal) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const old = parseInt(el.textContent, 10);
+    if (newVal !== old) {
+      el.textContent = newVal;
+      el.classList.remove('bump');
+      void el.offsetWidth; // reflow to restart animation
+      el.classList.add('bump');
+    }
+  }
+
+  function refreshStats() {
+    fetch('/api/stats').then(r => r.json()).then(s => {
+      setMetric('metricVisits', s.visits);
+      setMetric('metricVotes',  s.total_votes);
+    }).catch(() => {});
+  }
+
+  // Poll every 10s for live updates (especially useful when sharing the URL)
+  setInterval(refreshStats, 10000);
 
   // ── Init ──────────────────────────────────────────────────────────────────
   updateTotal();
