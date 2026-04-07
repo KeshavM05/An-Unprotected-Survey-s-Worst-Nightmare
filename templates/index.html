@@ -198,6 +198,41 @@
 
     .stat-pill strong { color: var(--text); }
 
+    /* ── Bulk Actions ─────────────────────────────────────────────────────── */
+    .bulk-bar {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    
+    .bulk-bar label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      cursor: pointer;
+    }
+    
+    .bulk-input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 14px;
+      padding: 8px 12px;
+      width: 100px;
+      outline: none;
+    }
+    .bulk-input:focus { border-color: var(--accent); }
+
     /* ── Grid ─────────────────────────────────────────────────────────────── */
     .grid {
       display: grid;
@@ -243,6 +278,15 @@
       justify-content: space-between;
       gap: 10px;
       margin-bottom: 10px;
+    }
+
+    .card-checkbox {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent);
+      cursor: pointer;
+      flex-shrink: 0;
+      margin-top: 2px;
     }
 
     .card-label {
@@ -899,6 +943,19 @@
     </div>
   </div>
 
+  <!-- Bulk Actions Bar -->
+  <div class="bulk-bar">
+    <label>
+      <input type="checkbox" class="card-checkbox" id="selectAllCb" onchange="toggleSelectAll()">
+      <span>Select All</span>
+    </label>
+    <div style="width: 1px; height: 24px; background: var(--border); margin: 0 4px;"></div>
+    <input type="number" class="bulk-input" id="bulkInput" placeholder="Votes..." min="0">
+    <button class="btn btn-primary" style="padding: 8px 16px;" onclick="applyBulkVotes()">
+      Overwrite Selected
+    </button>
+  </div>
+
   <!-- Group grid -->
   <div id="grid" class="grid">
     {% for c in choices %}
@@ -906,10 +963,13 @@
          id="card-{{ c.id }}"
          data-label="{{ c.label }} {{ c.display }}">
 
-      <div class="card-header">
-        <div>
-          <div class="card-label">{{ c.label }}</div>
-          <div class="card-sublabel">{{ c.display }}</div>
+      <div class="card-header" onclick="toggleCardCheck('{{ c.id }}', event)">
+        <div style="display:flex; gap:12px;">
+          <input type="checkbox" class="card-checkbox group-cb" id="cb-{{ c.id }}" onclick="event.stopPropagation()">
+          <div>
+            <div class="card-label">{{ c.label }}</div>
+            <div class="card-sublabel">{{ c.display }}</div>
+          </div>
         </div>
         {% if c.id == '24' %}
         <span class="star-badge">⭐ People's Choice</span>
@@ -944,9 +1004,48 @@
   const CHOICES = {{ choices | tojson }};
   let eventSource = null;
   let isVoting = false;
-  let failCount = 0;
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
+  // ── Bulk Actions ──────────────────────────────────────────────────────────
+  function toggleSelectAll() {
+    const isChecked = document.getElementById('selectAllCb').checked;
+    document.querySelectorAll('.group-cb').forEach(cb => cb.checked = isChecked);
+  }
+
+  function toggleCardCheck(id, event) {
+    if (event && event.target.tagName === 'INPUT') return;
+    const cb = document.getElementById('cb-' + id);
+    cb.checked = !cb.checked;
+  }
+
+  function applyBulkVotes() {
+    const val = parseInt(document.getElementById('bulkInput').value, 10);
+    if (isNaN(val) || val < 0) {
+      alert('Please enter a valid number of votes to apply.');
+      return;
+    }
+    
+    let appliedCount = 0;
+    document.querySelectorAll('.group-cb:checked').forEach(cb => {
+      const id = cb.id.replace('cb-', '');
+      const inputEl = document.getElementById('vote-' + id);
+      if (inputEl) {
+        inputEl.value = val;
+        appliedCount++;
+        // Trigger UI update classes
+        const card = document.getElementById('card-' + id);
+        card.classList.toggle('has-votes', val > 0);
+      }
+    });
+
+    if (appliedCount === 0) {
+      alert('Please select at least one group to apply votes to.');
+      return;
+    }
+
+    updateTotal();
+  }
+
+  // ── Core UI logic ────────────────────────────────────────────────────────────────
   function getVote(id) {
     return Math.max(0, parseInt(document.getElementById(`vote-${id}`)?.value || '0', 10) || 0);
   }
