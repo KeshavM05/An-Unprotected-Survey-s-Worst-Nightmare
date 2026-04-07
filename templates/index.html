@@ -341,14 +341,12 @@
       border: 1px solid var(--border);
       border-radius: var(--radius-lg);
       padding: 24px;
-      display: none;
+      display: block;
       margin-bottom: 28px;
       position: sticky;
       top: 16px;
       z-index: 10;
     }
-
-    .progress-panel.active { display: block; }
 
     .progress-header {
       display: flex;
@@ -806,10 +804,10 @@
   <div id="progressPanel" class="progress-panel">
     <div class="progress-header">
       <div class="progress-title">
-        <div id="spinnerEl" class="spinner"></div>
-        <span id="progressTitle">Voting in progress…</span>
+        <div id="spinnerEl" class="spinner" style="display: none;"></div>
+        <span id="progressTitle">Ready to launch…</span>
       </div>
-      <button id="stopBtn" class="btn btn-danger" onclick="stopVoting()">
+      <button id="stopBtn" class="btn btn-danger hidden" onclick="stopVoting()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
         Stop
       </button>
@@ -1116,12 +1114,13 @@
   function setVotingState(voting) {
     isVoting = voting;
     document.getElementById('launchBtn').disabled = voting;
-    document.getElementById('progressPanel').classList.toggle('active', voting || true);
     document.getElementById('spinnerEl').style.display  = voting ? '' : 'none';
     document.getElementById('stopBtn').classList.toggle('hidden', !voting);
     if (voting) {
       document.getElementById('progressTitle').textContent = 'Voting in progress…';
       document.getElementById('doneBanner').classList.remove('show');
+    } else {
+      document.getElementById('progressTitle').textContent = 'Ready to launch…';
     }
   }
 
@@ -1155,12 +1154,13 @@
 
   // ── Init ──────────────────────────────────────────────────────────────────
   updateTotal();
+  logLine('System initialized. Waiting for launch.', 'log-ts');
+  connectSSE(); // always connect, so we get live updates sent by other tabs
 
-  // If voting is already running (new tab opened mid-session), catch up
+  // Check if voting already happened
   fetch('/api/status').then(r => r.json()).then(s => {
     if (s.active) {
       setVotingState(true);
-      connectSSE();   // replay buffer sends all prior log lines automatically
     }
   }).catch(() => {});
 </script>
