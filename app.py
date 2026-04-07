@@ -75,6 +75,8 @@ _sse_clients_lock = threading.Lock()
 _vote_log: list[str] = []                     # replay buffer for new tabs
 _current_state: dict = {}                     # latest progress snapshot
 _voting_active = False
+_job_queue: list[dict] = []                   # queue of voting jobs
+_queue_lock = threading.Lock()
 MAX_LOG_HISTORY = 100
 
 
@@ -215,7 +217,6 @@ def _run_votes(jobs: list[dict]):
     submitted in a block-per-group order.
     """
     global _voting_active
-    _voting_active = True
 
     # Build a flat, shuffled list of every individual vote to cast
     flat: list[dict] = []
@@ -258,8 +259,19 @@ def _run_votes(jobs: list[dict]):
             time.sleep(0.3 + random.uniform(0, 0.2))
 
     emit("done", {"done": done, "total": total, "success": success})
-    _voting_active = False
 
+def _voting_thread_loop():
+    global _voting_active
+    while True:
+        with _queue_lock:
+            if not _job_queue:
+                _voting_active = False
+                break
+            # Pop the next batch of jobs from the front of the queue
+            jobs = _job_queue.pop(0)
+
+        _voting_active = True
+        _run_votes(jobs)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Routes
@@ -285,14 +297,12 @@ def api_stats():
 @app.route("/api/vote", methods=["POST"])
 def api_vote():
     global _voting_active
-    if _voting_active:
-        return jsonify({"error": "Already voting — stop first"}), 409
-
     data = request.json
     mode = data.get("mode", "rigged")  # "rigged" | "override"
+    queue_action = data.get("queue_action", "end") # "end" | "front"
 
-    # Override mode requires the secret password (compared as SHA-256 hash, case-insensitive)
-    if mode == "override":
+    # Override mode requires the secret password
+    if mode == "override" or queue_action == "front":
         if not check_password(data.get("password", "")):
             return jsonify({"error": "Wrong password. Nice try."}), 403
 
@@ -310,14 +320,27 @@ def api_vote():
             else:
                 jobs.append({"choice_id": SSS_CHOICE_ID, "label": SSS_LABEL, "count": bonus})
 
-    thread = threading.Thread(target=_run_votes, args=(jobs,), daemon=True)
-    thread.start()
-    return jsonify({"ok": True, "mode": mode})
+    with _queue_lock:
+        if queue_action == "front":
+            _job_queue.insert(0, jobs)
+        else:
+            _job_queue.append(jobs)
+
+        if not _voting_active:
+            _voting_active = True
+            threading.Thread(target=_voting_thread_loop, daemon=True).start()
+
+    # Alert clients that queue size changed
+    _broadcast("queue_update", {"queue_size": len(_job_queue)})
+    return jsonify({"ok": True, "mode": mode, "queue_action": queue_action})
 
 
 @app.route("/api/stop", methods=["POST"])
 def api_stop():
     global _voting_active
+    with _queue_lock:
+        _job_queue.clear()
+        _broadcast("queue_update", {"queue_size": 0})
     _voting_active = False
     return jsonify({"ok": True})
 
@@ -325,10 +348,13 @@ def api_stop():
 @app.route("/api/status")
 def api_status():
     """Lets new tabs check if voting is in progress and get current state."""
+    with _queue_lock:
+        q_size = len(_job_queue)
     return jsonify({
         "active": _voting_active,
         "state": _current_state,
         "log_count": len(_vote_log),
+        "queue_size": q_size,
     })
 
 

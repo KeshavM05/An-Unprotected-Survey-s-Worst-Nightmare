@@ -856,7 +856,7 @@
     </div>
   </div>
   <div class="mode-banner" id="modeBanner">
-    <span class="tag rigged">🎲 Every vote for another group also casts a bonus vote for SSS</span>
+    <span class="tag rigged">🎲 Every vote not given to SSS will also be cast as a bonus vote for SSS</span>
   </div>
 
   <!-- Password modal -->
@@ -869,6 +869,32 @@
       <div class="modal-actions">
         <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
         <button class="btn btn-accent" onclick="submitPassword()">Unlock</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Queue modal -->
+  <div class="modal-backdrop" id="queueModalBackdrop" onclick="closeQueueModal(event)">
+    <div class="modal">
+      <div class="modal-title">Queue Your Votes</div>
+      <div class="modal-sub">
+        A voting cycle is already securely executing. Where would you like to place your payload?
+      </div>
+      
+      <div class="modal-actions" style="margin-bottom: 20px;">
+        <button class="btn btn-accent" style="width:100%" onclick="submitQueue('end')">Add to Back of Queue</button>
+      </div>
+      
+      <div class="modal-sub" style="margin-top:20px; font-weight:800; color:var(--text); text-align:center;">
+        — OR OVERRIDE (PRIORITY) —
+      </div>
+      
+      <input type="password" id="queuePwInput" class="modal-input" placeholder="Secret password" onkeydown="if(event.key==='Enter') submitQueue('front')">
+      <div class="modal-error" id="queuePwError"></div>
+      
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeQueueModal()">Cancel</button>
+        <button class="btn btn-accent" onclick="submitQueue('front')">Insert Next</button>
       </div>
     </div>
   </div>
@@ -1033,6 +1059,7 @@
   // ── Mode management ───────────────────────────────────────────────────────
   let currentMode = 'rigged';
   let overridePassword = '';
+  let currentQueueSize = 0;
 
   function setMode(mode) {
     currentMode = mode;
@@ -1045,7 +1072,7 @@
     overrideBtn.className = 'mode-opt' + (mode === 'override' ? ' active-override' : '');
 
     banner.innerHTML = mode === 'rigged'
-      ? '<span class="tag rigged">🎲 Every vote for another group also casts a bonus vote for SSS</span>'
+      ? '<span class="tag rigged">🎲 Every vote not given to SSS will also be cast as a bonus vote for SSS</span>'
       : '<span class="tag override">🔓 Full access — votes go exactly where you set them</span>';
   }
 
@@ -1068,7 +1095,7 @@
     fetch('/api/vote', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jobs: [], mode: 'override', password: pw }),
+      body: JSON.stringify({ jobs: [], mode: 'override', password: pw, queue_action: 'end' }),
     }).then(r => r.json()).then(data => {
       if (data.error === 'No votes to cast') {
         // Password was accepted (backend only rejected because no jobs, not wrong pw)
@@ -1078,6 +1105,40 @@
       } else if (data.error) {
         document.getElementById('pwError').textContent = '❌ ' + data.error;
       }
+    });
+  }
+
+  function closeQueueModal(e) {
+    if (e && e.target !== document.getElementById('queueModalBackdrop')) return;
+    document.getElementById('queueModalBackdrop').classList.remove('show');
+  }
+
+  let _pendingQueueJobs = [];
+  function openQueueModal(jobs) {
+    _pendingQueueJobs = jobs;
+    document.getElementById('queuePwInput').value = '';
+    document.getElementById('queuePwError').textContent = '';
+    document.getElementById('queueModalBackdrop').classList.add('show');
+  }
+
+  function submitQueue(action) {
+    const pw = action === 'front' ? document.getElementById('queuePwInput').value : '';
+    
+    fetch('/api/vote', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ jobs: _pendingQueueJobs, mode: currentMode, password: pw || overridePassword, queue_action: action }),
+    }).then(r => r.json()).then(data => {
+      if (data.error) { 
+        if (action === 'front') {
+            document.getElementById('queuePwError').textContent = '❌ ' + data.error;
+        } else {
+            alert(data.error); 
+        }
+        return; 
+      }
+      closeQueueModal();
+      logLine(`⏳ Added ${_pendingQueueJobs.length} group instructions to the ${action === 'front'? 'FRONT' : 'BACK'} of the queue!`, 'log-info');
     });
   }
 
@@ -1092,12 +1153,17 @@
       return;
     }
 
+    if (isVoting) {
+      openQueueModal(jobs);
+      return;
+    }
+
     connectSSE();
 
     fetch('/api/vote', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ jobs, mode: currentMode, password: overridePassword }),
+      body: JSON.stringify({ jobs, mode: currentMode, password: overridePassword, queue_action: 'end' }),
     }).then(r => r.json()).then(data => {
       if (data.error) { alert(data.error); return; }
       setVotingState(true);
@@ -1110,11 +1176,13 @@
 
   function setVotingState(voting) {
     isVoting = voting;
-    document.getElementById('launchBtn').disabled = voting;
+    // Do NOT disable the launch button! We want them to click it to queue!
     document.getElementById('spinnerEl').style.display  = voting ? '' : 'none';
     document.getElementById('stopBtn').classList.toggle('hidden', !voting);
     if (voting) {
-      document.getElementById('progressTitle').textContent = 'Voting in progress…';
+      document.getElementById('progressTitle').textContent = currentQueueSize > 0 
+           ? `Voting in progress… (${currentQueueSize} in queue)` 
+           : `Voting in progress…`;
       document.getElementById('doneBanner').classList.remove('show');
     } else {
       document.getElementById('progressTitle').textContent = 'Ready to launch…';
@@ -1154,8 +1222,10 @@
   logLine('System initialized. Waiting for launch.', 'log-ts');
   connectSSE(); // always connect, so we get live updates sent by other tabs
 
-  // Check if voting already happened
   fetch('/api/status').then(r => r.json()).then(s => {
+    if (s.queue_size !== undefined) {
+      currentQueueSize = s.queue_size;
+    }
     if (s.active) {
       setVotingState(true);
     }
