@@ -6,8 +6,8 @@ __pycache__/
 venv/
 .venv/
 
-# NOTE: stats.json is intentionally NOT ignored.
-# It gets committed so visit/vote counts survive across redeployments.
+# Local stats (Ignore to prevent Git from overwriting EC2's running total)
+stats.json
 
 # Temp files
 hashes.txt

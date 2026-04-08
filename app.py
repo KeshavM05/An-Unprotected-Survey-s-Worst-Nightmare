@@ -12,6 +12,11 @@ import re
 import threading
 import time
 
+try:
+    import fcntl
+except ImportError:
+    fcntl = None  # Fallback for local Windows testing
+
 import requests
 from flask import Flask, Response, jsonify, render_template, request
 
@@ -114,7 +119,12 @@ _stats_lock = threading.Lock()
 def _load_stats() -> dict:
     try:
         with open(STATS_FILE, "r") as f:
-            return json.load(f)
+            if fcntl:
+                fcntl.flock(f, fcntl.LOCK_SH)
+            data = json.load(f)
+            if fcntl:
+                fcntl.flock(f, fcntl.LOCK_UN)
+            return data
     except (FileNotFoundError, json.JSONDecodeError):
         return {"visits": 0, "total_votes": 0}
 
@@ -125,11 +135,31 @@ def _save_stats(stats: dict):
 
 
 def _increment_stat(key: str, by: int = 1) -> dict:
-    """Thread-safe increment of a stat key. Returns updated stats."""
-    with _stats_lock:
-        stats = _load_stats()
-        stats[key] = stats.get(key, 0) + by
-        _save_stats(stats)
+    """Multi-process safe increment of a stat key. Returns updated stats."""
+    if fcntl is None:
+        # Fallback for Windows local server (single-process threads only)
+        with _stats_lock:
+            stats = _load_stats()
+            stats[key] = stats.get(key, 0) + by
+            _save_stats(stats)
+            return stats
+
+    # High-concurrency cross-process locking for EC2 Linux Web Workers
+    with _stats_lock: # Protect local thread access first
+        with open(STATS_FILE, "a+") as f:
+            fcntl.flock(f, fcntl.LOCK_EX)
+            f.seek(0)
+            try:
+                stats = json.load(f)
+            except (json.JSONDecodeError, ValueError):
+                stats = {"visits": 0, "total_votes": 0}
+                
+            stats[key] = stats.get(key, 0) + by
+            
+            f.seek(0)
+            f.truncate()
+            json.dump(stats, f)
+            fcntl.flock(f, fcntl.LOCK_UN)
         return stats
 
 
