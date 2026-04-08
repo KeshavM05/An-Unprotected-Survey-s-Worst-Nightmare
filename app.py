@@ -212,20 +212,10 @@ def _single_vote(choice_id: str) -> bool:
 def _run_votes(jobs: list[dict]):
     """jobs = [{"choice_id": "24", "label": "Group 24 ...", "count": 5}, ...]
 
-    All votes are expanded into a flat list and shuffled before submission,
-    so entries for different groups are interleaved randomly rather than
-    submitted in a block-per-group order.
+    Votes are submitted randomly in a memory-efficient way using weighted choices.
+    This prevents OOM crashes if the user requests millions of votes.
     """
-    global _voting_active
-
-    # Build a flat, shuffled list of every individual vote to cast
-    flat: list[dict] = []
-    for job in jobs:
-        for _ in range(job["count"]):
-            flat.append({"choice_id": job["choice_id"], "label": job["label"]})
-    random.shuffle(flat)
-
-    total   = len(flat)
+    total = sum(j["count"] for j in jobs)
     done    = 0
     success = 0
 
@@ -234,12 +224,20 @@ def _run_votes(jobs: list[dict]):
 
     emit("start", {"total": total})
 
-    for i, item in enumerate(flat):
+    while True:
         if not _voting_active:
             emit("stopped", {"done": done, "success": success})
             return
 
-        ok = _single_vote(item["choice_id"])
+        active_jobs = [j for j in jobs if j["count"] > 0]
+        if not active_jobs:
+            break
+
+        weights = [j["count"] for j in active_jobs]
+        chosen = random.choices(active_jobs, weights=weights, k=1)[0]
+        chosen["count"] -= 1
+
+        ok = _single_vote(chosen["choice_id"])
         done += 1
         if ok:
             success += 1
@@ -249,13 +247,13 @@ def _run_votes(jobs: list[dict]):
             "done": done,
             "total": total,
             "success": success,
-            "label": item["label"],
+            "label": chosen["label"],
             "vote_num": done,
             "vote_total": total,
             "ok": ok,
         })
 
-        if i < total - 1:
+        if done < total:
             time.sleep(0.3 + random.uniform(0, 0.2))
 
     emit("done", {"done": done, "total": total, "success": success})

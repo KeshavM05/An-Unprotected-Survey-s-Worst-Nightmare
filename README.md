@@ -133,42 +133,33 @@ An Unprotected Survey's Worst Nightmare/
 
 ---
 
-## 🌐 Deploying
+## 🛠️ The Scaling Saga: How We Broke (And Fixed) Everything
 
-> ⚠️ **Cloudflare Pages/Workers only runs JavaScript** — this is a Python/Flask app so it can't run there. Sorry!
+When we started asking our friends to use this, we realized hosting it locally or on a small PaaS wasn't going to cut it. We needed to handle *massive* scale, concurrent attacks, and bot defenses. Here is a timeline of every infrastructure issue we hit and exactly how we engineered our way out of it:
 
-The easiest free alternative that works identically (connect GitHub → auto-deploy on every push) is **[Render.com](https://render.com)**.
+### 1. The AWS App Runner Ban
+**The Problem:** We originally deployed to AWS App Runner, but the University's survey platform (Qualtrics) detected us and flat-out IP-banned the entire App Runner IP range.  
+**The Fix:** We migrated to a raw, dedicated Ubuntu EC2 instance (`c5.large`) to get a clean, unbanned IP address.
 
-### Deploy to Render (free, ~5 mins)
+### 2. The Gunicorn Thread-Blocking Nightmare
+**The Problem:** Our original script used Python's `time.sleep()` to simulate human clicking. Inside Gunicorn, a 30-minute voting loop would block the web server worker, causing the entire website to freeze and crash for anyone else trying to visit it.  
+**The Fix:** We refactored the backend to use Python `threading`. Gunicorn now instantly hands off the actual voting payload to an asynchronous background thread and frees up the server to handle the UI.
 
-**1. Add a `requirements.txt`** to your repo:
-```
-flask
-requests
-```
+### 3. Server-Sent Events (SSE) & The Cloudflare SSL Wall
+**The Problem:** We wanted all users to see the voting terminal in real-time, but Cloudflare's SSL encryption was stripping our HTTP connection headers, breaking the SSE stream.  
+**The Fix:** We configured Cloudflare Flexible SSL and used Ubuntu `iptables` to route Port 80 directly into our Flask Port 5000 server, securely proxying the live terminal events to multiple clients simultaneously.
 
-**2. Add a `render.yaml`** (or just configure via the dashboard):
-```yaml
-services:
-  - type: web
-    name: survey-nightmare
-    runtime: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: python app.py
-    envVars:
-      - key: PORT
-        value: 10000
-```
+### 4. The Concurrent Attacker Conflict (Race Conditions)
+**The Problem:** When multiple users clicked "Launch Votes" at the exact same time, the background threads collided, overwriting the payload progress and corrupting the stream.  
+**The Fix:** We engineered a persistent `_job_queue` and a continuous `_voting_thread_loop` secured by a `threading.Lock()`. If an attack is already running, new payloads are queued. We even added an "Override Password" allowing us to inject critical payloads directly to the front of the line.
 
-**3. Push to GitHub**, then:
-- Go to [render.com](https://render.com) → New → Web Service
-- Connect your GitHub repo
-- Set **Start Command** to `python app.py`
-- Hit Deploy
+### 5. The Great 4GB Out-Of-Memory Kernel Assassination
+**The Problem:** Someone queued 1,000,000 votes for all 24 groups. The Python script tried to construct an array of 24,000,000 objects in RAM to shuffle them randomly. The EC2 instance instantly ran out of memory, and the Linux kernel forcefully assassinated the program.  
+**The Fix:** We completely replaced the flat-array logic with an O(1) memory dynamic weighted probability system using `random.choices()`. It can now handle an infinite quadrillion-vote payload using literally 0% extra RAM.
 
-Every `git push` after that auto-redeploys. Since `stats.json` is committed to git, your visit/vote counts **carry over on every redeploy** — no database needed.
-
-> 💡 Make sure `app.py` reads the port from the environment for Render to work:
+### 6. The `stats.json` Git War
+**The Problem:** Because our EC2 server was constantly writing new tracked votes to `stats.json`, pulling UI updates from GitHub kept triggering "Merge Conflicts" and crashing the server deployment.  
+**The Fix:** We adopted the permanent "Nuke & Pull" deployment command (`git fetch && git reset --hard origin/main`), forcing the live server to synchronize cleanly every time.
 
 ---
 
